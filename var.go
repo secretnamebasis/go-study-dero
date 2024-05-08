@@ -5,6 +5,7 @@ import (
 	"github.com/ybbus/jsonrpc"
 )
 
+var err error
 var (
 	rpcClient           jsonrpc.RPCClient
 	nodeEndpoint        string = "http://secretnamebasis.site:10102/json_rpc"
@@ -23,5 +24,5 @@ var t = T{
 	address: rpc.Address{},
 	number:  42,
 }
-
 var p P = &t
+var c *RPCConfig = NewRPCConfig(nodeEndpoint, walletEndpoint, username, password)

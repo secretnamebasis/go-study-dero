@@ -28,57 +28,68 @@ func NewRPCConfig(nodeEndpoint, walletEndpoint, username, password string) *RPCC
 	}
 }
 
-func (c *RPCConfig) SetEndpoint(method string) {
-	if strings.Contains(method, "DERO.") {
+func (c *RPCConfig) SetEndpoint(m string) {
+	if strings.Contains(m, "DERO.") {
 		c.Endpoint = c.NodeEndpoint
 	} else {
 		c.Endpoint = c.WalletEndpoint
 	}
 }
 
-func (c *RPCConfig) NewClient(method string) jsonrpc.RPCClient {
-	c.SetEndpoint(method)
+func (c *RPCConfig) NewClient(m string) jsonrpc.RPCClient {
+	c.SetEndpoint(m)
 	return jsonrpc.NewClientWithOpts(c.Endpoint, c.Opts)
 }
 
-func (c *RPCConfig) Call(method string, result interface{}, params ...interface{}) error {
-	c.Client = c.NewClient(method)
+func (c *RPCConfig) Call(m string, r interface{}, params ...interface{}) error {
+	c.Client = c.NewClient(m)
 	if len(params) > 0 {
-		return c.Client.CallFor(&result, method, params...)
+		return c.Client.CallFor(&r, m, params...)
 	}
-	return c.Client.CallFor(&result, method)
+	return c.Client.CallFor(&r, m)
 }
 
-func (c *RPCConfig) GasEstimate(params rpc.GasEstimate_Params) (*rpc.GasEstimate_Result, error) {
-	var method = "DERO.GetGasEstimate"
-	var result = new(rpc.GasEstimate_Result)
-	c.Client = c.NewClient(method)
-	var err = c.Call(method, &result, params)
+func (c *RPCConfig) BlockTemplate(p rpc.GetBlockTemplate_Params) (*rpc.GetBlockTemplate_Result, error) {
+	var m = "DERO.GetBlockTemplate"
+	var r = new(rpc.GetBlockTemplate_Result)
+	c.Client = c.NewClient(m)
+	err = c.Call(m, &r, p)
 	if err != nil {
 		return nil, err
 	}
-	return result, err
+	return r, err
+}
+
+func (c *RPCConfig) GasEstimate(params rpc.GasEstimate_Params) (*rpc.GasEstimate_Result, error) {
+	var m = "DERO.GetGasEstimate"
+	var r = new(rpc.GasEstimate_Result)
+	c.Client = c.NewClient(m)
+	err = c.Call(m, &r, params)
+	if err != nil {
+		return nil, err
+	}
+	return r, err
 }
 
 func (c *RPCConfig) Address() (address *rpc.Address, err error) {
-	var method = "GetAddress"
-	var result = new(rpc.GetAddress_Result)
-	err = c.Call(method, result)
+	var m = "GetAddress"
+	var r = new(rpc.GetAddress_Result)
+	err = c.Call(m, r)
 	if err != nil {
 		return address, err
 	}
-	return rpc.NewAddress(result.Address)
+	return rpc.NewAddress(r.Address)
 }
 
 func (c *RPCConfig) Title() (string, error) {
-	var method = "GetAddress"
-	var result = new(rpc.GetAddress_Result)
-	var err = c.Call(method, result)
+	var m = "GetAddress"
+	var r = new(rpc.GetAddress_Result)
+	var err = c.Call(m, r)
 	if err != nil {
 		return "", err
 	}
 
-	return result.Address, nil
+	return r.Address, nil
 }
 
 func F(x P) bool {

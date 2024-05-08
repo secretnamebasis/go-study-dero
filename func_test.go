@@ -1,14 +1,17 @@
 package main
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/deroproject/derohe/cryptography/crypto"
 	"github.com/deroproject/derohe/rpc"
 )
 
 func TestF(t *testing.T) {
-	var c *RPCConfig = NewRPCConfig(nodeEndpoint, walletEndpoint, username, password)
 	address, _ := c.Address()
 	this := address.String()
 	given := T{
@@ -64,7 +67,6 @@ func TestF(t *testing.T) {
 	)
 }
 func TestTitle(t *testing.T) {
-	var c *RPCConfig = NewRPCConfig(nodeEndpoint, walletEndpoint, username, password)
 
 	given, err := c.Title()
 	if err != nil {
@@ -80,7 +82,6 @@ func TestTitle(t *testing.T) {
 }
 
 func TestAddress(t *testing.T) {
-	var c *RPCConfig = NewRPCConfig(nodeEndpoint, walletEndpoint, username, password)
 
 	given, err := c.Address()
 	if err != nil {
@@ -147,11 +148,9 @@ func TestAddress(t *testing.T) {
 }
 
 func TestGasEstimate(t *testing.T) {
-	var c *RPCConfig = NewRPCConfig(nodeEndpoint, walletEndpoint, username, password)
 	var s string = "dero1qyvqpdftj8r6005xs20rnflakmwa5pdxg9vcjzdcuywq2t8skqhvwqglt6x0g"
 	var scid string = "0000000000000000000000000000000000000000000000000000000000000001"
 	var given *rpc.GasEstimate_Result
-	var err error
 
 	var (
 		a = rpc.Arguments{
@@ -238,8 +237,8 @@ func TestGasEstimate(t *testing.T) {
 
 		/* cmd/derod/rpc/rpc_dero_estimategas.go
 
-		   if result.GasCompute,
-		       result.GasStorage, err = s.RunSC(
+		   if r.GasCompute,
+		       r.GasStorage, err = s.RunSC(
 		           incoming_values,
 		           p.SC_RPC, // because this value doesn't exists it goes *blegh*
 		           signer,
@@ -254,11 +253,10 @@ func TestGasEstimate(t *testing.T) {
 		Fees:     uint64(0),
 		Signer:   s,
 	}
+	p = rpc.GasEstimate_Params(tp)
 	t.Run(
 		"for dero",
 		func(t *testing.T) {
-
-			p = rpc.GasEstimate_Params(tp)
 			given, err = c.GasEstimate(p)
 			t.Run(
 				"gives an error",
@@ -266,6 +264,86 @@ func TestGasEstimate(t *testing.T) {
 					if err == nil || given != nil {
 						t.Errorf("%s\n", given.Status)
 					}
+				},
+			)
+		},
+	)
+}
+
+func TestBlockTemplate(t *testing.T) {
+	var p rpc.GetBlockTemplate_Params = rpc.GetBlockTemplate_Params{
+		Miner:          c.Username,
+		Wallet_Address: "dero1qyvqpdftj8r6005xs20rnflakmwa5pdxg9vcjzdcuywq2t8skqhvwqglt6x0g",
+		Block:          true,
+	}
+	var given *rpc.GetBlockTemplate_Result
+	given, err = c.BlockTemplate(p)
+	fmt.Printf("%+v\n", given)
+	if err != nil {
+		t.Errorf("%s", err)
+	}
+	// Ensure given is not nil before accessing its fields
+	if given == nil {
+		t.Errorf("Received nil result")
+		return // Exiting early if the result is nil
+	}
+	t.Run(
+		"test JobID",
+		func(t *testing.T) {
+			// EX: JOB ID: 1715200867796.0.secret
+
+			// Validate JobID format
+			when := strings.Split(given.JobID, ".")
+			if len(when) != 3 {
+				t.Errorf("Invalid JobID format: %s", given.JobID)
+			}
+			t.Run(
+				"JobID contains network",
+				func(t *testing.T) {
+					if !strings.EqualFold(when[1], "0") {
+						t.Errorf("JobID does not contain newtwork")
+					}
+				},
+			)
+			t.Run(
+				"JobID contains username",
+				func(t *testing.T) {
+					if !strings.EqualFold(when[2], c.Username) {
+						t.Errorf("JobID does not contain username")
+					}
+				},
+			)
+
+			t.Run(
+				"JobId contains timestamp",
+				func(t *testing.T) {
+					var timestamp, err = strconv.ParseInt(when[0], 10, 64)
+					if err != nil {
+						t.Errorf("Invalid timestamp in JobID: %s", when[0])
+					}
+					seconds := timestamp / 1000 // Convert milliseconds to seconds
+
+					var timeObj = time.Unix(seconds, 0)
+					if timeObj.IsZero() {
+						t.Errorf("Invalid timestamp value: %d", seconds)
+					}
+					var validate = func(t *testing.T, method string, x, y, z int) {
+						t.Helper() // t.Helper() is a method that marks the calling function as a helper function and not a test
+						if x < y || x > z {
+							t.Errorf("Invalid %s in timestamp: %d", method, x)
+						}
+					}
+					t.Run(
+						"validate time components",
+						func(t *testing.T) {
+							validate(t, "year", timeObj.Year(), 2000, 2100)
+							validate(t, "month", int(timeObj.Month()), 1, 12)
+							validate(t, "day", timeObj.Day(), 1, 31)
+							validate(t, "hour", timeObj.Hour(), 0, 23)
+							validate(t, "minute", timeObj.Minute(), 0, 59)
+							validate(t, "second", timeObj.Second(), 0, 59)
+						},
+					)
 				},
 			)
 		},
