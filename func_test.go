@@ -80,71 +80,76 @@ func TestTitle(t *testing.T) {
 		t.Errorf("Expected length of %d characters, got %d characters", expect66chars, when)
 	}
 }
-
 func TestAddress(t *testing.T) {
+	testCases := []struct {
+		name  string
+		check func(*testing.T, *rpc.Address)
+	}{
+		{
+			name: "is a DERO address",
+			check: func(t *testing.T, given *rpc.Address) {
+				if !given.IsDERONetwork() {
+					t.Error()
+				}
+			},
+		},
+		{
+			name: "is mainnet",
+			check: func(t *testing.T, given *rpc.Address) {
+				if !given.Mainnet {
+					t.Error()
+				}
+			},
+		},
+		{
+			name: "does not contain proof",
+			check: func(t *testing.T, given *rpc.Address) {
+				if given.Proof {
+					t.Error()
+				}
+			},
+		},
+		{
+			name: "network is 0",
+			check: func(t *testing.T, given *rpc.Address) {
+				if given.Network != 0 {
+					t.Error()
+				}
+			},
+		},
+		{
+			name: "the string and encoded compressed PublicKey are the same",
+			check: func(t *testing.T, given *rpc.Address) {
+				if given.PublicKey.String() != string(given.PublicKey.EncodeCompressed()) {
+					t.Error()
+				}
+			},
+		},
+		{
+			name: "test PublicKey length",
+			check: func(t *testing.T, given *rpc.Address) {
+				expectedLength := 33
+				if len(given.Compressed()) != expectedLength {
+					t.Errorf(
+						"Expected length of %d bytes, got %s bytes", // we use %s to stringify the bytes
+						expectedLength,
+						given.Compressed(),
+					)
+				}
+			},
+		},
+	}
 
 	given, err := c.Address()
 	if err != nil {
 		t.Error()
 	}
-	t.Run(
-		"test rpc.Address",
-		func(t *testing.T) {
-			t.Run(
-				"is a DERO address",
-				func(t *testing.T) {
-					if !given.IsDERONetwork() {
-						t.Error()
-					}
-				},
-			)
-			t.Run(
-				"is mainnet",
-				func(t *testing.T) {
-					if !given.Mainnet {
-						t.Error()
-					}
-				},
-			)
-			t.Run(
-				"does not contain proof",
-				func(t *testing.T) {
-					if given.Proof {
-						t.Error()
-					}
-				},
-			)
-			t.Run(
-				"network is 0",
-				func(t *testing.T) {
-					if given.Network != 0 {
-						t.Error()
-					}
-				},
-			)
-			t.Run(
-				"the string and encoded compressed PulicKey are the same",
-				func(t *testing.T) {
-					if given.PublicKey.String() != string(given.PublicKey.EncodeCompressed()) {
-						t.Error()
-					}
-				},
-			)
-			t.Run(
-				"test PublicKey length",
-				func(t *testing.T) {
-					then := 33
-					if len(given.Compressed()) != then {
-						t.Errorf(
-							"Expected length of %d bytes, got %s bytes", // we use %s to stringify the bytes
-							then,
-							given.Compressed(),
-						)
-					}
-				},
-			)
-		},
-	)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.check(t, given)
+		})
+	}
 }
 
 func TestGasEstimate(t *testing.T) {
@@ -170,8 +175,8 @@ func TestGasEstimate(t *testing.T) {
 				Value:    "Register",
 			},
 			{
-				Name:     "name",         // "SC_ID"
-				DataType: rpc.DataString, // "H"
+				Name:     "name",
+				DataType: rpc.DataString, // "S"
 				Value:    "secretnamebasis",
 			},
 		}
@@ -200,10 +205,10 @@ func TestGasEstimate(t *testing.T) {
 			if err != nil {
 				t.Errorf("%s\n", err)
 			}
-			if given.GasCompute < 0 {
+			if given.GasCompute < 1 {
 				t.Error()
 			}
-			if given.GasStorage < 0 {
+			if given.GasStorage < 1 {
 				t.Error()
 			}
 		},
@@ -274,7 +279,7 @@ func TestBlockTemplate(t *testing.T) {
 	var p rpc.GetBlockTemplate_Params = rpc.GetBlockTemplate_Params{
 		Miner:          c.Username,
 		Wallet_Address: "dero1qyvqpdftj8r6005xs20rnflakmwa5pdxg9vcjzdcuywq2t8skqhvwqglt6x0g",
-		Block:          true,
+		Block:          false,
 	}
 	var given *rpc.GetBlockTemplate_Result
 	given, err = c.BlockTemplate(p)
@@ -327,23 +332,70 @@ func TestBlockTemplate(t *testing.T) {
 					if timeObj.IsZero() {
 						t.Errorf("Invalid timestamp value: %d", seconds)
 					}
+					var test = []struct {
+						test    *testing.T
+						method  string
+						x, y, z int
+					}{
+						{
+							test:   t,
+							method: "year",
+							x:      timeObj.Year(),
+							y:      2000,
+							z:      2100,
+						},
+						{
+							test:   t,
+							method: "month",
+							x:      int(timeObj.Month()),
+							y:      1,
+							z:      12,
+						},
+						{
+							test:   t,
+							method: "day",
+							x:      timeObj.Day(),
+							y:      1,
+							z:      31,
+						},
+						{
+							test:   t,
+							method: "hour",
+							x:      timeObj.Hour(),
+							y:      0,
+							z:      23,
+						},
+						{
+							test:   t,
+							method: "minute",
+							x:      timeObj.Minute(),
+							y:      0,
+							z:      59,
+						},
+						{
+							test:   t,
+							method: "second",
+							x:      timeObj.Second(),
+							y:      0,
+							z:      59,
+						},
+					}
+
 					var validate = func(t *testing.T, method string, x, y, z int) {
 						t.Helper() // t.Helper() is a method that marks the calling function as a helper function and not a test
 						if x < y || x > z {
 							t.Errorf("Invalid %s in timestamp: %d", method, x)
 						}
 					}
-					t.Run(
-						"validate time components",
-						func(t *testing.T) {
-							validate(t, "year", timeObj.Year(), 2000, 2100)
-							validate(t, "month", int(timeObj.Month()), 1, 12)
-							validate(t, "day", timeObj.Day(), 1, 31)
-							validate(t, "hour", timeObj.Hour(), 0, 23)
-							validate(t, "minute", timeObj.Minute(), 0, 59)
-							validate(t, "second", timeObj.Second(), 0, 59)
-						},
-					)
+
+					for _, tc := range test {
+						t.Run(
+							"validate time components",
+							func(t *testing.T) {
+								validate(tc.test, tc.method, tc.x, tc.y, tc.z)
+							},
+						)
+					}
 				},
 			)
 		},
